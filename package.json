@@ -1,0 +1,23 @@
+{
+  "name": "hot-require",
+  "version": "1.0.0",
+  "description": "reload required module",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/inu1255/node-hot-require.git"
+  },
+  "keywords": [
+    "node",
+    "require"
+  ],
+  "author": "inu1255",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/inu1255/node-hot-require/issues"
+  },
+  "homepage": "https://github.com/inu1255/node-hot-require#readme"
+}
