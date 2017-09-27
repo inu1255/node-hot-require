@@ -1,29 +1,28 @@
 /**
- * File: test.js
- * Project: hot-require
  * Created Date: 2017-09-26 20:45:55
  * Author: inu1255
+ * E-Mail: 929909260@qq.com
  * -----
- * Last Modified: 2017-09-26 22:31:37
+ * Last Modified: 2017-09-27 11:16:36
  * Modified By: inu1255
  * -----
- * Copyright (c) 2017 高木学习
- * 
- * 静以修身,俭以养德
+ * Copyright (c) 2017 gaomuxuexi
  */
 const hot = require("../index");
 const fs = require("fs");
+const path = require("path");
 
-fs.writeFileSync("./s.js", "module.exports='abc'");
+filename = path.join(__dirname,"./s.js");
+fs.writeFileSync(filename, "module.exports='abc'");
 
-const s = hot(require.resolve("./s.js"));
+const s = hot.require("./s.js");
 
 console.log(s());
 
-fs.writeFileSync("./s.js", "module.exports='123'");
+fs.writeFileSync(filename, "module.exports='123'");
 
 hot.reloadAll();
 
 console.log(s());
 
-fs.unlinkSync("./s.js");
+fs.unlinkSync(filename);

@@ -1,6 +1,6 @@
 {
   "name": "hot-require",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "reload required module",
   "main": "index.js",
   "scripts": {
@@ -19,5 +19,9 @@
   "bugs": {
     "url": "https://github.com/inu1255/node-hot-require/issues"
   },
-  "homepage": "https://github.com/inu1255/node-hot-require#readme"
+  "homepage": "https://github.com/inu1255/node-hot-require#readme",
+  "dependencies": {
+    "callsites": "^2.0.0",
+    "node-module-proxy": "^1.0.0"
+  }
 }

@@ -1,17 +1,17 @@
 /**
- * File: index.js
- * Project: hot-require
  * Created Date: 2017-09-26 20:43:27
  * Author: inu1255
+ * E-Mail: 929909260@qq.com
  * -----
- * Last Modified: 2017-09-26 22:31:12
+ * Last Modified: 2017-09-27 11:19:08
  * Modified By: inu1255
  * -----
- * Copyright (c) 2017 高木学习
- * 
- * 静以修身,俭以养德
+ * Copyright (c) 2017 gaomuxuexi
  */
 const fs = require("fs");
+const callsites = require("callsites");
+const path = require("path");
+const Proxy = require("node-module-proxy");
 
 function dfs(data, fn) {
     if (!data) return;
@@ -21,8 +21,7 @@ function dfs(data, fn) {
         }
         return;
     }
-    parent = fn(data);
-    dfs(data.children, fn);
+    if (fn(data)) dfs(data.children, fn);
 }
 
 /**
@@ -39,8 +38,11 @@ function cleanCache(filename) {
     }
     var children = {};
     dfs(module.children, function(item) {
-        children[item.filename] = item;
-        require.cache[item.filename] = null;
+        if (item.filename.indexOf("node_modules") < 0) {
+            children[item.filename] = item;
+            require.cache[item.filename] = null;
+            return true;
+        }
     });
     require.cache[filename] = null;
     // 还原 cache
@@ -68,41 +70,47 @@ function reload(filename) {
     return require.cache[filename];
 }
 
-const handles = [];
-function hot(filename) {
+const _moduels = {};
+const _fw = {};
+exports.require = function(modulePath) {
+    let filename = modulePath;
+    if (modulePath[0] == ".") {
+        const p = callsites()[1].getFileName();
+        filename = path.join(path.dirname(p), modulePath);
+    }
     var mod = require(filename);
-    var fw;
-    const handle = function() {
-        return mod;
-    };
-    handle.close = function() {
-        fw.close();
-        fw = null;
-    };
-    handle.watch = function() {
-        if (fw) return;
-        fw = fs.watch(filename, function(event) {
-            if (event === "change")
-                mod = reload(filename);
-        });
-    };
-    handle.reload = function() {
-        mod = reload(filename);
-    };
-    handles.push(handle);
-    return handle;
+    var proxy = _moduels[filename];
+    if (proxy) return proxy.value;
+    proxy = new Proxy(mod);
+    _moduels[filename] = proxy;
+    return proxy.value;
 };
 
-hot.reloadAll = function() {
-    for (let handle of handles) {
-        handle.reload();
+exports.reloadAll = function() {
+    for (let filename in _moduels) {
+        let proxy = _moduels[filename];
+        let mod = reload(filename);
+        proxy.use(mod);
     }
 };
 
-hot.watchAll = function() {
-    for (let handle of handles) {
-        handle.watch();
+exports.watchAll = function() {
+    for (let filename in _moduels) {
+        let proxy = _moduels[filename];
+        let fw = _fw[filename];
+        if (!fw) {
+            _fw[filename] = fs.watchFile(filename, function() {
+                let mod = reload(filename);
+                proxy.use(mod);
+            });
+        }
     }
 };
 
-module.exports = hot;
+exports.stopWatchAll = function() {
+    for (let k in _fw) {
+        let v = _fw[k];
+        v.close();
+        Reflect.deleteProperty(_fw, k);
+    }
+};
