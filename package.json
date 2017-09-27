@@ -1,5 +1,5 @@
 {
-  "name": "hot-require",
+  "name": "node-hot-require",
   "version": "1.0.1",
   "description": "reload required module",
   "main": "index.js",

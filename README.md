@@ -3,7 +3,7 @@
 ``` js
 // app.js
 const express = require("express");
-const hot = require("hot-require");
+const hot = require("node-hot-require");
 
 const app = express();
 
