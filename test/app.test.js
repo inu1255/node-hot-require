@@ -3,7 +3,7 @@
  * Author: inu1255
  * E-Mail: 929909260@qq.com
  * -----
- * Last Modified: 2017-09-27 11:10:06
+ * Last Modified: 2017-09-29 14:11:27
  * Modified By: inu1255
  * -----
  * Copyright (c) 2017 gaomuxuexi
@@ -14,6 +14,11 @@ const hot = require("../index.js");
 const app = express();
 
 const router = hot.require("./router.js");
+hot.watchAll();
+
+hot.on("reload", function(err, filename) {
+    console.log(err, filename);
+});
 
 app.use(router);
 

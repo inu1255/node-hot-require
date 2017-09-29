@@ -3,7 +3,7 @@
  * Author: inu1255
  * E-Mail: 929909260@qq.com
  * -----
- * Last Modified: 2017-09-27 11:19:08
+ * Last Modified: 2017-09-29 14:44:07
  * Modified By: inu1255
  * -----
  * Copyright (c) 2017 gaomuxuexi
@@ -12,6 +12,12 @@ const fs = require("fs");
 const callsites = require("callsites");
 const path = require("path");
 const Proxy = require("node-module-proxy");
+const events = require('events');
+
+const emitter = new events.EventEmitter();
+const _proxys = {}; // module 代理
+const _file_watchers = {};
+const _cache_children = {}; // 子module
 
 function dfs(data, fn) {
     if (!data) return;
@@ -24,35 +30,43 @@ function dfs(data, fn) {
     if (fn(data)) dfs(data.children, fn);
 }
 
+function cacheChild(filename) {
+    var mod = require.cache[filename];
+    const cache = [];
+    dfs(mod.children, function(item) {
+        if (item.filename.indexOf("node_modules") < 0) {
+            cache.push(item);
+            return true;
+        }
+    });
+    return cache;
+}
+
 /**
  * 清空module cache 返回 roolback
  * @param {string} filename 
  */
 function cleanCache(filename) {
-    var module = require.cache[filename];
-    if (!module)
+    var mod = require.cache[filename];
+    if (!mod)
         return function() {};
     // remove reference in module.parent
-    if (module.parent) {
-        module.parent.children.splice(module.parent.children.indexOf(module), 1);
+    if (mod.parent) {
+        mod.parent.children.splice(mod.parent.children.indexOf(mod), 1);
     }
-    var children = {};
-    dfs(module.children, function(item) {
-        if (item.filename.indexOf("node_modules") < 0) {
-            children[item.filename] = item;
-            require.cache[item.filename] = null;
-            return true;
-        }
-    });
+    // 清空child module
+    const children = _cache_children[filename];
+    for (let item of children) {
+        require.cache[item.filename] = null;
+    }
     require.cache[filename] = null;
     // 还原 cache
     return function rollback() {
-        for (let k in children) {
-            let v = children[k];
-            require.cache[k] = v;
+        for (let item of children) {
+            require.cache[item.filename] = item;
         }
-        require.cache[filename] = module;
-        module.parent.children.push(module);
+        require.cache[filename] = mod;
+        mod.parent.children.push(mod);
     };
 }
 
@@ -63,54 +77,73 @@ function cleanCache(filename) {
 function reload(filename) {
     const rollback = cleanCache(filename);
     try {
-        return require(filename);
+        const mod = require(filename);
+        _cache_children[filename] = cacheChild(filename);
+        if (watching) emitter.watchAll();
+        emitter.emit("reload", null, filename);
+        return mod;
     } catch (ex) {
+        emitter.emit("reload", ex, filename);
         rollback();
     }
     return require.cache[filename];
 }
 
-const _moduels = {};
-const _fw = {};
-exports.require = function(modulePath) {
+emitter.require = function(modulePath) {
     let filename = modulePath;
     if (modulePath[0] == ".") {
         const p = callsites()[1].getFileName();
         filename = path.join(path.dirname(p), modulePath);
     }
     var mod = require(filename);
-    var proxy = _moduels[filename];
+    _cache_children[filename] = cacheChild(filename);
+    var proxy = _proxys[filename];
     if (proxy) return proxy.value;
     proxy = new Proxy(mod);
-    _moduels[filename] = proxy;
+    _proxys[filename] = proxy;
     return proxy.value;
 };
 
-exports.reloadAll = function() {
-    for (let filename in _moduels) {
-        let proxy = _moduels[filename];
+emitter.reloadAll = function() {
+    for (let filename in _proxys) {
+        let proxy = _proxys[filename];
         let mod = reload(filename);
         proxy.use(mod);
     }
 };
 
-exports.watchAll = function() {
-    for (let filename in _moduels) {
-        let proxy = _moduels[filename];
-        let fw = _fw[filename];
-        if (!fw) {
-            _fw[filename] = fs.watchFile(filename, function() {
+var watching = false;
+emitter.watchAll = function() {
+    watching = true;
+    for (let filename in _proxys) {
+        let proxy = _proxys[filename];
+        if (!_file_watchers[filename]) {
+            // console.log("watch", filename);
+            _file_watchers[filename] = fs.watchFile(filename, function() {
                 let mod = reload(filename);
                 proxy.use(mod);
             });
         }
+        console.log(_cache_children[filename].length);
+        for (let item of _cache_children[filename]) {
+            if (!_file_watchers[item.filename]) {
+                // console.log("watch", item.filename);
+                _file_watchers[item.filename] = fs.watchFile(item.filename, function() {
+                    let mod = reload(filename);
+                    proxy.use(mod);
+                });
+            }
+        }
     }
 };
 
-exports.stopWatchAll = function() {
-    for (let k in _fw) {
-        let v = _fw[k];
+emitter.stopWatchAll = function() {
+    watching = false;
+    for (let k in _file_watchers) {
+        let v = _file_watchers[k];
         v.close();
-        Reflect.deleteProperty(_fw, k);
+        Reflect.deleteProperty(_file_watchers, k);
     }
 };
+
+module.exports = emitter;

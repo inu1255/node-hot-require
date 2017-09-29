@@ -3,16 +3,17 @@
  * Author: inu1255
  * E-Mail: 929909260@qq.com
  * -----
- * Last Modified: 2017-09-27 11:22:29
+ * Last Modified: 2017-09-29 14:43:38
  * Modified By: inu1255
  * -----
  * Copyright (c) 2017 gaomuxuexi
  */
 var express = require('express');
+const s = require("./s.js");
 var router = express.Router();
 
 router.get('/', function(req, res) {
-    res.send('change me!');
+    res.send(s);
 });
 
 module.exports = router;
