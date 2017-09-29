@@ -1,6 +1,6 @@
 {
   "name": "node-hot-require",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "reload required module",
   "main": "index.js",
   "scripts": {
@@ -22,6 +22,7 @@
   "homepage": "https://github.com/inu1255/node-hot-require#readme",
   "dependencies": {
     "callsites": "^2.0.0",
+    "chokidar": "^1.7.0",
     "node-module-proxy": "^1.0.0"
   }
 }

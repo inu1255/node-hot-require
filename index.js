@@ -3,16 +3,17 @@
  * Author: inu1255
  * E-Mail: 929909260@qq.com
  * -----
- * Last Modified: 2017-09-29 14:44:07
+ * Last Modified: 2017-09-29 21:29:14
  * Modified By: inu1255
  * -----
  * Copyright (c) 2017 gaomuxuexi
  */
-const fs = require("fs");
+
 const callsites = require("callsites");
 const path = require("path");
 const Proxy = require("node-module-proxy");
 const events = require('events');
+const chokidar = require('chokidar');
 
 const emitter = new events.EventEmitter();
 const _proxys = {}; // module 代理
@@ -74,17 +75,18 @@ function cleanCache(filename) {
  * 重新require一个module
  * @param {string} filename 
  */
-function reload(filename) {
+function reload(filename, errFn) {
     const rollback = cleanCache(filename);
     try {
         const mod = require(filename);
         _cache_children[filename] = cacheChild(filename);
-        if (watching) emitter.watchAll();
-        emitter.emit("reload", null, filename);
+        if (watchAll.watcher) emitter.watchAll();
         return mod;
-    } catch (ex) {
-        emitter.emit("reload", ex, filename);
+    } catch (err) {
         rollback();
+        if (errFn) {
+            errFn(err);
+        }
     }
     return require.cache[filename];
 }
@@ -104,45 +106,48 @@ emitter.require = function(modulePath) {
     return proxy.value;
 };
 
-emitter.reloadAll = function() {
-    for (let filename in _proxys) {
-        let proxy = _proxys[filename];
-        let mod = reload(filename);
-        proxy.use(mod);
+function watchAll() {
+    if (!watchAll.watcher) {
+        watchAll.watcher = chokidar.watch('.zzzq');
+        watchAll.watcher.on("change", function() {
+            emitter.reloadAll();
+        });
     }
-};
-
-var watching = false;
-emitter.watchAll = function() {
-    watching = true;
     for (let filename in _proxys) {
-        let proxy = _proxys[filename];
         if (!_file_watchers[filename]) {
             // console.log("watch", filename);
-            _file_watchers[filename] = fs.watchFile(filename, function() {
-                let mod = reload(filename);
-                proxy.use(mod);
-            });
+            watchAll.watcher.add(filename);
         }
-        console.log(_cache_children[filename].length);
         for (let item of _cache_children[filename]) {
             if (!_file_watchers[item.filename]) {
                 // console.log("watch", item.filename);
-                _file_watchers[item.filename] = fs.watchFile(item.filename, function() {
-                    let mod = reload(filename);
-                    proxy.use(mod);
-                });
+                watchAll.watcher.add(item.filename);
             }
         }
     }
+}
+
+emitter.reloadAll = function() {
+    var error;
+    for (let filename in _proxys) {
+        let proxy = _proxys[filename];
+        let mod = reload(filename, function(err) {
+            emitter.emit("error", err);
+            error = err;
+        });
+        proxy.use(mod);
+    }
+    emitter.emit("reload", error);
+    return error;
 };
 
+emitter.watchAll = watchAll;
+
 emitter.stopWatchAll = function() {
-    watching = false;
-    for (let k in _file_watchers) {
-        let v = _file_watchers[k];
-        v.close();
-        Reflect.deleteProperty(_file_watchers, k);
+    if (watchAll.watcher) {
+        watchAll.watcher.unwatch(watchAll.watcher.getWatched());
+        watchAll.watcher.close();
+        watchAll.watcher = null;
     }
 };
 
