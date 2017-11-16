@@ -1,10 +1,22 @@
 # node-hot-require
 
+## features
+
+1. hot require one,reload all module required by it
+2. ignore all module in node_modules and system module
+3. custom filter function witch file will be reload or not
+
 ``` js
 // app.js
 const express = require("express");
 const hot = require("node-hot-require");
-
+// after version 1.0.6,filter witch file will be reload
+hot.filter = function(filename) {
+    if (filename.endsWith("ignore.js")) {
+        return false;
+    }
+    return true;
+};
 const app = express();
 
 const router = hot.require("./router.js");

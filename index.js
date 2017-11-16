@@ -2,11 +2,6 @@
  * Created Date: 2017-09-26 20:43:27
  * Author: inu1255
  * E-Mail: 929909260@qq.com
- * -----
- * Last Modified: 2017-09-29 21:29:14
- * Modified By: inu1255
- * -----
- * Copyright (c) 2017 gaomuxuexi
  */
 
 const callsites = require("callsites");
@@ -35,6 +30,7 @@ function cacheChild(filename) {
     var mod = require.cache[filename];
     const cache = [];
     dfs(mod.children, function(item) {
+        if (typeof emitter.filter==="function" && !emitter.filter(item.filename)) return false;
         if (item.filename.indexOf("node_modules") < 0) {
             cache.push(item);
             return true;
